@@ -9,6 +9,7 @@ An "Elite" level command-line interface for high-performance audio and video tra
 - **🚀 Industry-Leading Performance**: Powered by `faster-whisper`, achieving up to 600x realtime transcription on CPU.
 - **🌍 Multi-Language Mastery**: Seamlessly detects and transcribes English, Urdu, and Hindi.
 - **💎 Premium UX**: Beautiful terminal interface with real-time progress tracking via `rich`.
+- **💾 Dual Export**: Automatically saves transcripts in both `.txt` and `.srt` (Subtitles) formats.
 - **🛠️ Power-User Control**: Force language selection and provide technical context via prompts.
 - **📂 Batch Processing**: Transcribe entire directories with a single command.
 - **🌎 Global Command**: Run `transcriber` from any PowerShell or CMD window.

@@ -44,9 +44,8 @@ class TranscriberEngine:
             log_info(f"Language: '{info.language}' (Prob: {info.language_probability:.2f})")
             
             full_transcript = []
+            segments_data = []
             with get_progress() as progress:
-                # We don't have a direct way to get total duration easily without another lib, 
-                # but we can show segments as they come.
                 task = progress.add_task("[cyan]Processing segments...", total=None)
                 
                 for segment in segments:
@@ -54,12 +53,13 @@ class TranscriberEngine:
                     if text:
                         print(f"[{format_timestamp(segment.start)} -> {format_timestamp(segment.end)}] {text}")
                         full_transcript.append(text)
+                        segments_data.append(segment)
                     progress.update(task, advance=1)
 
             duration = time.time() - start_time
             log_success(f"Transcription completed in {duration:.2f}s")
-            return " ".join(full_transcript)
+            return " ".join(full_transcript), segments_data
         
         except Exception as e:
             log_error(f"Error during transcription: {e}")
-            return None
+            return None, []

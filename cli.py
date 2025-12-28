@@ -1,6 +1,7 @@
 import sys
 import os
 import argparse
+import datetime
 from transcriber_engine import TranscriberEngine
 from utils import welcome_banner, log_info, log_error, log_success, console
 
@@ -21,6 +22,7 @@ def main():
     parser.add_argument("--model", default="base", help="Whisper model size (tiny, base, small, medium, large-v3)")
     parser.add_argument("--lang", help="Force a specific language (e.g., ur, hi, en)")
     parser.add_argument("--prompt", help="Provide context keywords (e.g., 'Namma Yatri, Authentication, Firebase')")
+    parser.add_argument("--no-save", action="store_true", help="Disable saving transcript to .txt and .srt files")
 
     args, unknown = parser.parse_known_args(processed_args[1:])
     
@@ -37,23 +39,56 @@ def main():
     except Exception:
         sys.exit(1)
 
-    if args.file:
-        process_file(engine, args.file, args.lang, args.prompt)
-    elif args.dir:
-        process_directory(engine, args.dir, args.lang, args.prompt)
+    save = not args.no_save
 
-def process_file(engine, file_path, lang=None, prompt=None):
+    if args.file:
+        process_file(engine, args.file, args.lang, args.prompt, save)
+    elif args.dir:
+        process_directory(engine, args.dir, args.lang, args.prompt, save)
+
+def process_file(engine, file_path, lang=None, prompt=None, save=True):
     if not os.path.isfile(file_path):
         log_error(f"'{file_path}' is not a valid file.")
         return
     
-    transcript = engine.transcribe(file_path, language=lang, initial_prompt=prompt)
+    transcript, segments = engine.transcribe(file_path, language=lang, initial_prompt=prompt)
     if transcript:
-        # For now, we just log completion as per user request (logs only, no save unless specified)
-        # But let's show a snippet or confirm it's done.
         log_success(f"Successfully transcribed {os.path.basename(file_path)}")
+        if save:
+            save_transcript(file_path, transcript)
+            save_srt(file_path, segments)
 
-def process_directory(engine, dir_path, lang=None, prompt=None):
+def save_transcript(file_path, transcript):
+    output_path = os.path.splitext(file_path)[0] + ".txt"
+    try:
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(transcript)
+        log_info(f"💾 Saved Text: {os.path.basename(output_path)}")
+    except Exception as e:
+        log_error(f"Failed to save transcript: {e}")
+
+def format_srt_timestamp(seconds: float) -> str:
+    td = datetime.timedelta(seconds=seconds)
+    total_seconds = int(td.total_seconds())
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    secs = total_seconds % 60
+    millis = int(td.microseconds / 1000)
+    return f"{hours:02}:{minutes:02}:{secs:02},{millis:03}"
+
+def save_srt(file_path, segments):
+    output_path = os.path.splitext(file_path)[0] + ".srt"
+    try:
+        with open(output_path, "w", encoding="utf-8") as f:
+            for i, segment in enumerate(segments, 1):
+                start = format_srt_timestamp(segment.start)
+                end = format_srt_timestamp(segment.end)
+                f.write(f"{i}\n{start} --> {end}\n{segment.text.strip()}\n\n")
+        log_info(f"💾 Saved SRT:  {os.path.basename(output_path)}")
+    except Exception as e:
+        log_error(f"Failed to save SRT: {e}")
+
+def process_directory(engine, dir_path, lang=None, prompt=None, save=True):
     if not os.path.isdir(dir_path):
         log_error(f"'{dir_path}' is not a valid directory.")
         return
@@ -69,7 +104,7 @@ def process_directory(engine, dir_path, lang=None, prompt=None):
     
     for i, file_path in enumerate(files, 1):
         console.rule(f"[brand]File {i}/{len(files)}: {os.path.basename(file_path)}[/brand]")
-        process_file(engine, file_path, lang, prompt)
+        process_file(engine, file_path, lang, prompt, save)
         print("\n")
 
 if __name__ == "__main__":
