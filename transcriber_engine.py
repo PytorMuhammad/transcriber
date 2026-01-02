@@ -23,17 +23,18 @@ class TranscriberEngine:
             log_error(f"Failed to initialize model: {e}")
             raise
 
-    def transcribe(self, file_path: str, language=None, initial_prompt=None):
-        """Transcribes a single file and logs the output."""
+    def transcribe(self, file_path: str, language=None, initial_prompt=None, silent=False):
+        """Transcribes a single file. If silent=True, suppresses console output for live mode."""
         if not os.path.exists(file_path):
-            log_error(f"File not found: {file_path}")
-            return
+            if not silent:
+                log_error(f"File not found: {file_path}")
+            return None, []
 
-        log_info(f"Transcribing: {os.path.basename(file_path)}")
+        if not silent:
+            log_info(f"Transcribing: {os.path.basename(file_path)}")
         start_time = time.time()
         
         try:
-            # Add initial_prompt to help with technical terms like "Authentication", "Firebase", "Namma Yatri"
             segments, info = self.model.transcribe(
                 file_path, 
                 beam_size=5, 
@@ -41,25 +42,38 @@ class TranscriberEngine:
                 initial_prompt=initial_prompt
             )
             
-            log_info(f"Language: '{info.language}' (Prob: {info.language_probability:.2f})")
+            if not silent:
+                log_info(f"Language: '{info.language}' (Prob: {info.language_probability:.2f})")
             
             full_transcript = []
             segments_data = []
-            with get_progress() as progress:
-                task = progress.add_task("[cyan]Processing segments...", total=None)
-                
+            
+            if silent:
+                # Silent mode: just collect segments, no progress bar
                 for segment in segments:
                     text = segment.text.strip()
                     if text:
-                        print(f"[{format_timestamp(segment.start)} -> {format_timestamp(segment.end)}] {text}")
                         full_transcript.append(text)
                         segments_data.append(segment)
-                    progress.update(task, advance=1)
+            else:
+                # Normal mode: show progress
+                with get_progress() as progress:
+                    task = progress.add_task("[cyan]Processing segments...", total=None)
+                    
+                    for segment in segments:
+                        text = segment.text.strip()
+                        if text:
+                            print(f"[{format_timestamp(segment.start)} -> {format_timestamp(segment.end)}] {text}")
+                            full_transcript.append(text)
+                            segments_data.append(segment)
+                        progress.update(task, advance=1)
 
             duration = time.time() - start_time
-            log_success(f"Transcription completed in {duration:.2f}s")
+            if not silent:
+                log_success(f"Transcription completed in {duration:.2f}s")
             return " ".join(full_transcript), segments_data
         
         except Exception as e:
-            log_error(f"Error during transcription: {e}")
+            if not silent:
+                log_error(f"Error during transcription: {e}")
             return None, []
